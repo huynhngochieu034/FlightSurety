@@ -1,6 +1,7 @@
 
 var Test = require('../config/testConfig.js');
 var BigNumber = require('bignumber.js');
+const web3 = require('web3');
 
 contract('Flight Surety Tests', async (accounts) => {
 
@@ -83,12 +84,38 @@ contract('Flight Surety Tests', async (accounts) => {
     catch(e) {
 
     }
-    let result = await config.flightSuretyData.isAirline.call(newAirline); 
+    let result = await config.flightSuretyData.isExistedAirline.call(newAirline); 
 
     // ASSERT
     assert.equal(result, false, "Airline should not be able to register another airline if it hasn't provided funding");
 
   });
- 
+
+  it('(multiparty) only existing airline may register a new airline', async () => {
+
+    const newAirline = accounts[2];
+
+    try {
+        await config.flightSuretyApp.registerAirline(newAirline, {from: config.firstAirline});
+    }
+    catch(e) {
+
+    }
+
+    const result = await config.flightSuretyData.isExistedAirline(newAirline);
+
+    await config.flightSuretyApp.sendFundToAirline(config.firstAirline, {from: config.firstAirline, value: 10000000000000000000}); 
+    await config.flightSuretyApp.registerAirline(newAirline, {from: config.firstAirline});
+
+    const result2 = await config.flightSuretyData.isExistedAirline(newAirline);
+    //await config.flightSuretyApp.sendFundToAirline(newAirline, {from: config.firstAirline, value: 10000000000000000000}); 
+    await config.flightSuretyApp.registerAirline(accounts[3], {from: config.firstAirline});
+    const result3 = await config.flightSuretyData.isExistedAirline(accounts[3],{from: config.firstAirline});
+
+    assert.equal(result, false, "Error airline was registered!");
+    assert.equal(result2, true, "Error airline was not registered!");
+    assert.equal(result3, true, "Error airline was not registered!");
+
+});
 
 });

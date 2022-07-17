@@ -9,19 +9,21 @@ contract FlightSuretyData {
     /*                                       DATA VARIABLES                                     */
     /********************************************************************************************/
 
+    mapping(address => uint256) private authorizedCallers;
+
     address private contractOwner;                                      // Account used to deploy contract
     bool private operational = true;                                    // Blocks all state changes throughout the contract if false
 
-    address[] private registeredAirlines;
-
     struct Airline {
         bool isRegistered;
-        uint fund;
+        uint256 fund;
     }
 
     mapping(address => Airline) airlines;
+    address[] private registeredAirlines;
 
     address[] private consensusOfRegistered;
+
 
     struct Passenger {
         bool[] isPaids;
@@ -32,6 +34,8 @@ contract FlightSuretyData {
     mapping(address => Passenger) passengers;
 
     mapping(string => address[]) flightPassengers;
+
+    mapping(address => uint256) private insurancePayments;
 
     /********************************************************************************************/
     /*                                       EVENT DEFINITIONS                                  */
@@ -52,7 +56,7 @@ contract FlightSuretyData {
 
         consensusOfRegistered = new address[](0);
 
-        airlines[_address] = Airline({ isRegistered: true, fund: 0 });
+        airlines[_address] = Airline({ isRegistered: true, fund: 0});
         registeredAirlines.push(_address);
     }
 
@@ -80,6 +84,12 @@ contract FlightSuretyData {
     modifier requireContractOwner()
     {
         require(msg.sender == contractOwner, "Caller is not contract owner");
+        _;
+    }
+
+    modifier requireIsCallerAuthorized()
+    {
+        require(authorizedCallers[msg.sender] == 1, "Caller is not contract owner");
         _;
     }
 
@@ -116,6 +126,26 @@ contract FlightSuretyData {
         operational = mode;
     }
 
+    function authorizeCaller
+                            (
+                                address contractAddress
+                            )
+                            external
+                            requireContractOwner
+    {
+        authorizedCallers[contractAddress] = 1;
+    }
+
+    function deauthorizeCaller
+                            (
+                                address contractAddress
+                            )
+                            external
+                            requireContractOwner
+    {
+        delete authorizedCallers[contractAddress];
+    }
+
     /********************************************************************************************/
     /*                                     SMART CONTRACT FUNCTIONS                             */
     /********************************************************************************************/
@@ -130,11 +160,15 @@ contract FlightSuretyData {
                                 address _address
                             )
                             external
-                            pure
                             requireIsOperational
     {
-        airlines[_address] = Airline({ isRegistered: true, fund: 0 });
-        registeredAirlines.push(_address);
+        if(airlines[_address].isRegistered) {
+
+        } else {
+          airlines[_address] = Airline ({ isRegistered: true, fund: 0 });
+          registeredAirlines.push(_address);
+        }
+        
     }
 
     function isExistedAirline(address _address) public view requireIsOperational returns (bool) {
@@ -149,7 +183,7 @@ contract FlightSuretyData {
         return airlines[_address].fund >= 10 ether;
     }
 
-    function addConsensusRegistered(address _address) public view requireIsOperational returns (uint){
+    function addConsensusRegistered(address _address) public requireIsOperational returns (uint){
         consensusOfRegistered.push(_address);
     }
 
@@ -166,7 +200,7 @@ contract FlightSuretyData {
     }
 
     function getInsureOfFlight(string _flight, address _passenger) external view requireIsOperational returns (uint){
-        int index = getIndexOfFlight(_passenger, _flight);
+        uint256 index = getIndexOfFlight(_passenger, _flight) - 1;
 
         if(passengers[_passenger].isPaids[index] == false)
             return passengers[_passenger].insuranceAmounts[index];
@@ -174,12 +208,23 @@ contract FlightSuretyData {
         return 0;
     }
 
-    function setInsureOfFlight(string _flight, address _passenger,uint _amount) external requireIsOperational{
-        int index = getIndexOfFlight(_passenger, _flight);
-        passengers[_passenger].isPaids[index] = true;
-        //insurancePayment[_passenger] = insurancePayment[_passenger].add(_amount);
+    function setInsureOfFlight(string _flight, address _address,uint _amount) external requireIsOperational{
+        uint256 index = getIndexOfFlight(_address, _flight) - 1;
+        passengers[_address].isPaids[index] = true;
+        insurancePayments[_address] = insurancePayments[_address].add(_amount);
     }
 
+    function getInsurancePayment(address _address) external view requireIsOperational returns (uint){
+        return insurancePayments[_address];
+    }
+
+    function getRegisteredAirlines() requireIsOperational public view returns(address[]){
+        return registeredAirlines;
+    }
+
+    function setInsurancePayment(address _address) external requireIsOperational{
+        insurancePayments[_address] = 0;
+    }
 
    /**
     * @dev Buy insurance for a flight
@@ -196,31 +241,39 @@ contract FlightSuretyData {
                             requireIsOperational
     {
         if(passengers[_address].flights.length > 0) {
-            int index = getIndexOfFlight(_passenger, _flight) ;
-            require(index == -1, "Passenger has been insured for this flight");
+            uint256 index = getIndexOfFlight(_address, _flight) ;
+            require(index == 0, "Passenger has been insured for this flight");
 
-            passengers[_passenger].isPaids.push(false);
-            passengers[_passenger].insuranceAmounts.push(_price);
-            passengers[_passenger].flights.push(_flight);
+            passengers[_address].isPaids.push(false);
+            passengers[_address].insuranceAmounts.push(_price);
+            passengers[_address].flights.push(_flight);
 
         } else {
-           passengers[_address] = Passenger({ isPaids: [false], insuranceAmounts: [_price], flights: [_flight] });
+            string[] memory flights = new string[](3);
+            bool[] memory isPaids = new bool[](3);
+            uint256[] memory insuranceAmounts = new uint[](3);
+
+            isPaids[0] = false;
+            insuranceAmounts[0] = _price;
+            flights[0] = _flight;
+
+           passengers[_address] = Passenger({ isPaids: isPaids, insuranceAmounts: insuranceAmounts, flights: flights });
         }
 
         flightPassengers[_flight].push(_address);
 
+        insurancePayments[_address] = _price;
     }
 
-    function getIndexOfFlight(address _address, string memory _flight) public view returns(int)
+    function getIndexOfFlight(address _address, string memory _flight) public view returns(uint256)
     {
         string[] memory flights = passengers[_address].flights;
 
-        for(uint i = 0; i < flights.length; i++){
-            if(uint(keccak256(abi.encodePacked(flights[i]))) == uint(keccak256(abi.encodePacked(_flight)))) {
-                return i;
-            }
-        }
-        return -1;
+        for(uint i = 0; i < flights.length; i++)
+            if(uint(keccak256(abi.encodePacked(flights[i]))) == uint(keccak256(abi.encodePacked(_flight)))) 
+                return i + 1;
+            
+        return 0;
     }
 
     /**
@@ -239,13 +292,17 @@ contract FlightSuretyData {
      *  @dev Transfers eligible payout funds to insuree
      *
     */
-    function pay
-                            (
-                            )
-                            external
-                            pure
-    {
-    }
+    // function pay
+    //                         (
+    //                             uint funds
+    //                         )
+    //                         external
+    //                         requireIsOperational
+    // {
+    //     if(address(this).balance > funds){
+    //         msg.sender.transfer(funds);
+    //     }
+    // }
 
    /**
     * @dev Initial funding for the insurance. Unless there are too many delayed flights
@@ -254,10 +311,13 @@ contract FlightSuretyData {
     */   
     function fund
                             (   
+                                address _address,
+                                uint256 _fund
                             )
                             public
                             payable
     {
+        airlines[_address].fund = airlines[_address].fund.add(_fund);
     }
 
     function getFlightKey
@@ -266,8 +326,8 @@ contract FlightSuretyData {
                             string memory flight,
                             uint256 timestamp
                         )
-                        pure
                         internal
+                        pure
                         returns(bytes32) 
     {
         return keccak256(abi.encodePacked(airline, flight, timestamp));
@@ -277,12 +337,12 @@ contract FlightSuretyData {
     * @dev Fallback function for funding smart contract.
     *
     */
-    function() 
-                            external 
-                            payable 
-    {
-        fund();
-    }
+    // function() 
+    //                         external 
+    //                         payable 
+    // {
+      
+    // }
 
 
 }

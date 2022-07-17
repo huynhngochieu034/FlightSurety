@@ -23,9 +23,53 @@
 
         <div id="display-wrapper" class="top-20">
         </div>
+
         <div class="row top-20">
-            <label class="form">Flight</label> <input type="text" id="flight-number"> <btn class="btn btn-primary" id="submit-oracle">Submit to Oracles</btn>
+            <label class="form">Register Airline:</label>
+            <input type="text" id="address-airline">
+            <btn class="btn btn-success" id="register-airline">Register Airline</btn>
         </div>
+
+        <div class="row top-20">
+            <label class="form">List Airlines to fund</label>
+            <select id="airlines"></select>
+            <div style="padding: 10px;">
+                eth: <input type="text" id="add-fund-airline">
+                <btn class="btn btn-success" id="btn-add-fund-airline">Fund Airline</btn>
+            </div>
+        </div>
+
+        <div class="row top-20">
+            <label class="form">Flight</label> <input type="text" id="flight-number"> <btn class="btn btn-success" id="submit-oracle">Submit to Oracles</btn>
+        </div>  
+
+        <div class="row top-20">
+            <label class="form">Purchase Insurance:</label>
+            <select id="passengers"></select>
+            <div style="padding: 10px;">
+                <label for="flight">Flight:</label>
+            <select id="flights"></select>
+            </div>
+            <div style="padding: 10px;">
+                eth: <input type="text" id="purchase-insurance"/>
+            <button class="btn btn-success" id="btn-purchase-insurance">Purchase insurance</button>
+            </div>
+            
+        </div>
+
+        <div class="row top-20">
+            <label class="form">Insurance of passengers:</label>
+            Address passengers:<input type="text" id="passenger-insurance-address">
+            <button class="btn btn-success" id="show-insurance">Show Insurance</button>
+        </div>
+
+        <div class="row top-20">
+            <label class="form">Withdraw insurance of passengers:</label>
+            Address passengers:<input type="text" id="passenger-withdraw-address">
+            <button class="btn btn-success" id="withdraw-insurance">Withdraw insurance</button>
+        </div>
+
+        
     </main>
 
 </body>
